@@ -1,0 +1,11 @@
+﻿Name: MailChimp
+AntiForgery: enabled
+Author: Zeta Tech
+Website: https://www.zeta.com.au
+Version: 1.0
+OrchardVersion: 1.10
+Description: A wrapper for the Mailchimp 3.0 API
+Features:
+    MailChimp:
+        Description: A wrapper for the Mailchimp 3.0 API
+		Category: Messaging

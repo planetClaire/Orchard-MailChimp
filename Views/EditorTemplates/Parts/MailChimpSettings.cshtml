@@ -1,0 +1,7 @@
+﻿@model MailChimp.Models.MailChimpSettingsPart
+
+<fieldset>
+    @Html.LabelFor(m => m.MailChimpApiKey)
+    @Html.EditorFor(m => m.MailChimpApiKey)
+    @Html.ValidationMessageFor(m => m.MailChimpApiKey)
+</fieldset>
