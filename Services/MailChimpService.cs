@@ -1,12 +1,16 @@
 ﻿using System;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
+using MailChimp.Exceptions;
 using MailChimp.Models;
 using MailChimp.Resources;
+using Newtonsoft.Json;
 using Orchard;
+using Orchard.Caching;
 using Orchard.ContentManagement;
-using RestSharp;
-using RestSharp.Authenticators;
 
 namespace MailChimp.Services
 {
@@ -14,44 +18,75 @@ namespace MailChimp.Services
     {
         private readonly string _apiKey;
         private readonly string _dataCenter;
+        private readonly ICacheManager _cacheManager;
+        private readonly ISignals _signals;
 
-        private const string BaseUrl = "https://{0}.api.mailchimp.com/3.0";
+        private const string BaseUrl = "https://{0}.api.mailchimp.com";
+        private const string ApiVersion = "3.0";
 
-        public MailChimpService(IWorkContextAccessor workContext) {
+        private HttpClient MailChimpHttpClient
+        {
+            get
+            {
+                var client = new HttpClient
+                {
+                    BaseAddress = new Uri(string.Format(BaseUrl, _dataCenter))
+                };
+                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format("apikey:{0}", _apiKey))));
+                return client;
+            }
+        }
+
+        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals) {
+            _cacheManager = cacheManager;
+            _signals = signals;
             _apiKey = workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
             _dataCenter = _apiKey.Substring(_apiKey.IndexOf('-') + 1);
         }
 
-        public Subscriber GetSubscriber(string listId, string emailAddress)
+        public async Task<Member> GetSubscriber(string listId, string emailAddress)
         {
-            var request = new RestRequest
-            {
-                Resource = "lists/{list_id}/members/{subscriber_hash}",
-                RootElement = "Subscriber"
-            };
-
-            request.AddParameter("list_id", listId, ParameterType.UrlSegment);
-            request.AddParameter("subscriber_hash", CreateMD5(emailAddress), ParameterType.UrlSegment);
-
-            return Execute<Subscriber>(request);
+            var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, listId, CreateMD5(emailAddress));
+            var failureMessage = string.Format("Failed to get member {0} from list {1}", emailAddress, listId);
+            return await CallApi<Member>(endpoint, failureMessage);
         }
 
-        private T Execute<T>(IRestRequest request) where T : new()
-        {
-            var client = new RestClient
-            {
-                BaseUrl = new Uri(string.Format(BaseUrl, _dataCenter)),
-                Authenticator = new HttpBasicAuthenticator("user", _apiKey)
-            };
-            var response = client.Execute<T>(request);
+        public async Task<List> GetList(string listId) {
+            var endpoint = string.Format("{0}/lists/{1}", ApiVersion, listId);
+            var failureMessage = string.Format("Failed to get list {0}", listId);
+            return await CallApi<List>(endpoint, failureMessage);
+        }
 
-            if (response.ErrorException != null)
+        public async Task<ListMembers> GetMembers(string listId)
+        {
+            return  await _cacheManager.Get(string.Format("MailChimpMembersList{0}", listId), async ctx => {
+                ctx.Monitor(_signals.When(string.Format("MailChimpMembersList{0}Changed", listId)));
+            
+                var list = await GetList(listId);
+                var memberCount = list.Stats.MemberCount;
+                var endpoint = string.Format("{0}/lists/{1}/members?count={2}", ApiVersion, listId, memberCount);
+                var failureMessage = string.Format("Failed to get members from list {0}", listId);
+                return await CallApi<ListMembers>(endpoint, failureMessage);
+            
+            });
+        }
+
+        private async Task<T> CallApi<T>(string endpoint, string message)
+        {
+            using (MailChimpHttpClient)
             {
-                const string message = "Error retrieving response.  Check inner details for more info.";
-                var mailchimpException = new ApplicationException(message, response.ErrorException);
-                throw mailchimpException;
+                var response = await MailChimpHttpClient.GetAsync(endpoint);
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadAsAsync<T>();
+                }
+                if (response.Content != null)
+                {
+                    var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync());
+                    throw new MailChimpException(message, problem);
+                }
+                throw new MailChimpException(message);
             }
-            return response.Data;
         }
 
         private static string CreateMD5(string input)
@@ -63,19 +98,11 @@ namespace MailChimp.Services
 
                 var sb = new StringBuilder();
                 foreach (var t in hashBytes) {
-                    sb.Append(t.ToString("X2"));
+                    sb.Append(t.ToString("x2"));
                 }
                 return sb.ToString();
             }
         }
         
-        //public void GetListSubscribers(string idList) {
-        //    var apiKey = _workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
-        //    var client = GetRestClient(apiKey);
-        //    var request = new RestRequest(string.Format("lists/{0}/members", idList));
-        //    var response = client.Execute(request);
-        //    var content = response.Content;
-        //}
-
     }
 }
