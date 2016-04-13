@@ -94,7 +94,6 @@
     <Compile Include="Models\MailChimpSettingsPart.cs" />
     <Compile Include="Resources\CampaignDefaults.cs" />
     <Compile Include="Resources\Contact.cs" />
-    <Compile Include="Resources\Enums.cs" />
     <Compile Include="Resources\Link.cs" />
     <Compile Include="Resources\List.cs" />
     <Compile Include="Resources\Location.cs" />
