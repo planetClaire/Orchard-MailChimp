@@ -71,6 +71,10 @@ namespace MailChimp.Services
             });
         }
 
+        public void RefreshCache(string idList) {
+            _signals.Trigger(string.Format("MailChimpMembersList{0}Changed", idList));
+        }
+
         private async Task<T> CallApi<T>(string endpoint, string message)
         {
             using (MailChimpHttpClient)
