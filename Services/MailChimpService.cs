@@ -8,7 +8,9 @@ using System.Threading.Tasks;
 using MailChimp.Exceptions;
 using MailChimp.Models;
 using MailChimp.Resources;
+using MailChimp.Serialization;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using Orchard;
 using Orchard.Caching;
 using Orchard.ContentManagement;
@@ -39,6 +41,19 @@ namespace MailChimp.Services
         }
 
         public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals) {
+        private static JsonSerializerSettings JsonSerializerSettings
+        {
+            get
+            {
+                var serializerSettings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                    ContractResolver = new SnakeCaseContractResolver()
+                };
+                serializerSettings.Converters.Add(new StringEnumConverter{ CamelCaseText = true });
+                return serializerSettings;
+            }
+        }
             _cacheManager = cacheManager;
             _signals = signals;
             _apiKey = workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
@@ -96,7 +111,7 @@ namespace MailChimp.Services
 
         private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content) {
             using (MailChimpHttpClient) {
-                var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content)));
+                var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
                 return await ProcessResponse<T>(failureMessage, response);
             }
         }
@@ -105,11 +120,11 @@ namespace MailChimp.Services
         {
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadAsAsync<T>();
+                return JsonConvert.DeserializeObject<T>(await response.Content.ReadAsStringAsync(), JsonSerializerSettings);
             }
             if (response.Content != null)
             {
-                var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync());
+                var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync(), JsonSerializerSettings);
                 throw new MailChimpException(string.Format("{0}: {1}", message, problem));
             }
             throw new MailChimpException(message);
