@@ -5,8 +5,8 @@ using Orchard;
 namespace MailChimp.Services
 {
     public interface IMailChimpService : IDependency {
-        Task<Member> GetSubscriber(string listId, string emailAddress);
         Task<List> GetList(string listId);
+        Task<Member> GetMember(string listId, string emailAddress);
         Task<ListMembers> GetMembers(string idList);
         void RefreshCache(string idList);
     }

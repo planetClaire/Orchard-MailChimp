@@ -44,7 +44,7 @@ namespace MailChimp.Services
             _dataCenter = _apiKey.Substring(_apiKey.IndexOf('-') + 1);
         }
 
-        public async Task<Member> GetSubscriber(string listId, string emailAddress)
+        public async Task<Member> GetMember(string listId, string emailAddress)
         {
             var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, listId, CreateMD5(emailAddress));
             var failureMessage = string.Format("Failed to get member {0} from list {1}", emailAddress, listId);
