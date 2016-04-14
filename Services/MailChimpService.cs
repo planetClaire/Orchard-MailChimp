@@ -48,13 +48,13 @@ namespace MailChimp.Services
         {
             var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, listId, CreateMD5(emailAddress));
             var failureMessage = string.Format("Failed to get member {0} from list {1}", emailAddress, listId);
-            return await CallApi<Member>(endpoint, failureMessage);
+            return await GetAsync<Member>(endpoint, failureMessage);
         }
 
         public async Task<List> GetList(string listId) {
             var endpoint = string.Format("{0}/lists/{1}", ApiVersion, listId);
             var failureMessage = string.Format("Failed to get list {0}", listId);
-            return await CallApi<List>(endpoint, failureMessage);
+            return await GetAsync<List>(endpoint, failureMessage);
         }
 
         public async Task<ListMembers> GetMembers(string listId)
@@ -66,31 +66,49 @@ namespace MailChimp.Services
                 var memberCount = list.Stats.MemberCount;
                 var endpoint = string.Format("{0}/lists/{1}/members?count={2}", ApiVersion, listId, memberCount);
                 var failureMessage = string.Format("Failed to get members from list {0}", listId);
-                return await CallApi<ListMembers>(endpoint, failureMessage);
+                return await GetAsync<ListMembers>(endpoint, failureMessage);
             
             });
         }
 
-        public void RefreshCache(string idList) {
+        public async Task<Member> AddMember(Member member) {
+            var endpoint = string.Format("{0}/lists/{1}/members", ApiVersion, member.ListId);
+            var failureMessage = string.Format("Failed to add member {0} to list {1}", member.EmailAddress, member.ListId);
+            return await PostAsync(endpoint, failureMessage, member);
+        }
+
+        public void RefreshCache(string idList)
+        {
             _signals.Trigger(string.Format("MailChimpMembersList{0}Changed", idList));
         }
 
-        private async Task<T> CallApi<T>(string endpoint, string message)
+        private async Task<T> GetAsync<T>(string endpoint, string message)
         {
-            using (MailChimpHttpClient)
-            {
+            using (MailChimpHttpClient) {
                 var response = await MailChimpHttpClient.GetAsync(endpoint);
-                if (response.IsSuccessStatusCode)
-                {
-                    return await response.Content.ReadAsAsync<T>();
-                }
-                if (response.Content != null)
-                {
-                    var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync());
-                    throw new MailChimpException(message, problem);
-                }
-                throw new MailChimpException(message);
+                return await ProcessResponse<T>(message, response);
             }
+        }
+
+        private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content) {
+            using (MailChimpHttpClient) {
+                var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content)));
+                return await ProcessResponse<T>(failureMessage, response);
+            }
+        }
+
+        private static async Task<T> ProcessResponse<T>(string message, HttpResponseMessage response)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadAsAsync<T>();
+            }
+            if (response.Content != null)
+            {
+                var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync());
+                throw new MailChimpException(string.Format("{0}: {1}", message, problem));
+            }
+            throw new MailChimpException(message);
         }
 
         private static string CreateMD5(string input)
