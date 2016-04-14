@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -51,8 +52,11 @@ namespace MailChimp.Services
             return await GetAsync<Member>(endpoint, failureMessage);
         }
 
-        public async Task<List> GetList(string listId) {
+        public async Task<List> GetList(string listId, string[] fields = null) {
             var endpoint = string.Format("{0}/lists/{1}", ApiVersion, listId);
+            if (fields != null && fields.Any()) {
+                endpoint += "?fields=" + string.Join(",", fields);
+            }
             var failureMessage = string.Format("Failed to get list {0}", listId);
             return await GetAsync<List>(endpoint, failureMessage);
         }
@@ -62,7 +66,7 @@ namespace MailChimp.Services
             return  await _cacheManager.Get(string.Format("MailChimpMembersList{0}", listId), async ctx => {
                 ctx.Monitor(_signals.When(string.Format("MailChimpMembersList{0}Changed", listId)));
             
-                var list = await GetList(listId);
+                var list = await GetList(listId, new []{"stats"});
                 var memberCount = list.Stats.MemberCount;
                 var endpoint = string.Format("{0}/lists/{1}/members?count={2}", ApiVersion, listId, memberCount);
                 var failureMessage = string.Format("Failed to get members from list {0}", listId);
