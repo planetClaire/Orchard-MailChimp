@@ -102,6 +102,12 @@ namespace MailChimp.Services
             return await PostAsync(endpoint, failureMessage, member, new List<string> {string.Format("{0}{1}Changed", MembersListSignal, member.ListId)});
         }
 
+        public async Task<Member> AddOrUpdateMember(Member member) {
+            var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, member.ListId, CreateMD5(member.EmailAddress));
+            var failureMessage = string.Format("Failed to add or update member {0} on list {1}", member.EmailAddress, member.ListId);
+            return await PutAsync(endpoint, failureMessage, member, new List<string> { string.Format("{0}{1}Changed", MembersListSignal, member.ListId) });
+        }
+
         public void RefreshCache(string idList) {
             _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
         }
@@ -129,6 +135,22 @@ namespace MailChimp.Services
                 var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
                 if (triggerSignals != null && triggerSignals.Any()) {
                     foreach (var signal in triggerSignals) {
+                        _signals.Trigger(signal);
+                    }
+                }
+                return await ProcessResponse<T>(failureMessage, response);
+            }
+        }
+
+        private async Task<T> PutAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null)
+        {
+            using (MailChimpHttpClient)
+            {
+                var response = await MailChimpHttpClient.PutAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+                if (triggerSignals != null && triggerSignals.Any())
+                {
+                    foreach (var signal in triggerSignals)
+                    {
                         _signals.Trigger(signal);
                     }
                 }

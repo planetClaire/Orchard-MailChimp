@@ -10,6 +10,7 @@ namespace MailChimp.Services
         Task<ListMembers> GetMembersInfo(string idList, string[] fields = null);
         Task<ListMembers> GetAllMembers(string idList);
         Task<Member> AddMember(Member member);
+        Task<Member> AddOrUpdateMember(Member member);
         void RefreshCache(string idList);
     }
 }
