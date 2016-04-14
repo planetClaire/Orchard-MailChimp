@@ -16,8 +16,10 @@ namespace MailChimp.Exceptions {
             if (!string.IsNullOrEmpty(Instance)) {
                 result.AppendFormat(", Instance: {0}", Instance);
             }
-            foreach (var error in Errors) {
-                result.AppendFormat(" Field {0}: {1}. ", error.Field, error.Message);
+            if (Errors != null) {
+                foreach (var error in Errors) {
+                    result.AppendFormat(" Field {0}: {1}. ", error.Field, error.Message);
+                }
             }
             return result.ToString();
         }
