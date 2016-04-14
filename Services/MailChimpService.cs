@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -26,6 +27,7 @@ namespace MailChimp.Services
 
         private const string BaseUrl = "https://{0}.api.mailchimp.com";
         private const string ApiVersion = "3.0";
+        private const string MembersListSignal = "MailChimpMembersList";
 
         private HttpClient MailChimpHttpClient
         {
@@ -40,7 +42,6 @@ namespace MailChimp.Services
             }
         }
 
-        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals) {
         private static JsonSerializerSettings JsonSerializerSettings
         {
             get
@@ -54,6 +55,9 @@ namespace MailChimp.Services
                 return serializerSettings;
             }
         }
+
+        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals)
+        {
             _cacheManager = cacheManager;
             _signals = signals;
             _apiKey = workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
@@ -81,8 +85,8 @@ namespace MailChimp.Services
 
         public async Task<ListMembers> GetAllMembers(string listId)
         {
-            return  await _cacheManager.Get(string.Format("MailChimpMembersList{0}", listId), async ctx => {
-                ctx.Monitor(_signals.When(string.Format("MailChimpMembersList{0}Changed", listId)));
+            return  await _cacheManager.Get(string.Format("{0}{1}", MembersListSignal, listId), async ctx => {
+                ctx.Monitor(_signals.When(string.Format("{0}{1}Changed", MembersListSignal, listId)));
             
                 var membersInfo = await GetMembersInfo(listId, new[] {"total_items"});
                 var endpoint = string.Format("{0}/lists/{1}/members?count={2}", ApiVersion, listId, membersInfo.TotalItems);
@@ -95,12 +99,11 @@ namespace MailChimp.Services
         public async Task<Member> AddMember(Member member) {
             var endpoint = string.Format("{0}/lists/{1}/members", ApiVersion, member.ListId);
             var failureMessage = string.Format("Failed to add member {0} to list {1}", member.EmailAddress, member.ListId);
-            return await PostAsync(endpoint, failureMessage, member);
+            return await PostAsync(endpoint, failureMessage, member, new List<string> {string.Format("{0}{1}Changed", MembersListSignal, member.ListId)});
         }
 
-        public void RefreshCache(string idList)
-        {
-            _signals.Trigger(string.Format("MailChimpMembersList{0}Changed", idList));
+        public void RefreshCache(string idList) {
+            _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
         }
 
         private static string FieldsString(string[] fields)
@@ -121,9 +124,14 @@ namespace MailChimp.Services
             }
         }
 
-        private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content) {
+        private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null) {
             using (MailChimpHttpClient) {
                 var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+                if (triggerSignals != null && triggerSignals.Any()) {
+                    foreach (var signal in triggerSignals) {
+                        _signals.Trigger(signal);
+                    }
+                }
                 return await ProcessResponse<T>(failureMessage, response);
             }
         }
