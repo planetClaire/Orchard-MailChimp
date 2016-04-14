@@ -68,22 +68,24 @@ namespace MailChimp.Services
         }
 
         public async Task<List> GetList(string listId, string[] fields = null) {
-            var endpoint = string.Format("{0}/lists/{1}", ApiVersion, listId);
-            if (fields != null && fields.Any()) {
-                endpoint += "?fields=" + string.Join(",", fields);
-            }
+            var endpoint = string.Format("{0}/lists/{1}{2}", ApiVersion, listId, FieldsString(fields));
             var failureMessage = string.Format("Failed to get list {0}", listId);
             return await GetAsync<List>(endpoint, failureMessage);
         }
 
-        public async Task<ListMembers> GetMembers(string listId)
+        public async Task<ListMembers> GetMembersInfo(string idList, string[] fields = null) {
+            var endpoint = string.Format("{0}/lists/{1}/members{2}", ApiVersion, idList, FieldsString(fields));
+            var failureMessage = string.Format("Failed to get members info from list {0}", idList);
+            return await GetAsync<ListMembers>(endpoint, failureMessage);
+        }
+
+        public async Task<ListMembers> GetAllMembers(string listId)
         {
             return  await _cacheManager.Get(string.Format("MailChimpMembersList{0}", listId), async ctx => {
                 ctx.Monitor(_signals.When(string.Format("MailChimpMembersList{0}Changed", listId)));
             
-                var list = await GetList(listId, new []{"stats"});
-                var memberCount = list.Stats.MemberCount;
-                var endpoint = string.Format("{0}/lists/{1}/members?count={2}", ApiVersion, listId, memberCount);
+                var membersInfo = await GetMembersInfo(listId, new[] {"total_items"});
+                var endpoint = string.Format("{0}/lists/{1}/members?count={2}", ApiVersion, listId, membersInfo.TotalItems);
                 var failureMessage = string.Format("Failed to get members from list {0}", listId);
                 return await GetAsync<ListMembers>(endpoint, failureMessage);
             
@@ -99,6 +101,16 @@ namespace MailChimp.Services
         public void RefreshCache(string idList)
         {
             _signals.Trigger(string.Format("MailChimpMembersList{0}Changed", idList));
+        }
+
+        private static string FieldsString(string[] fields)
+        {
+            var result = "";
+            if (fields != null && fields.Any())
+            {
+                result += "?fields=" + string.Join(",", fields);
+            }
+            return result;
         }
 
         private async Task<T> GetAsync<T>(string endpoint, string message)
