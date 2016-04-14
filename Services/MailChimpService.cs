@@ -108,6 +108,19 @@ namespace MailChimp.Services
             return await PutAsync(endpoint, failureMessage, member, new List<string> { string.Format("{0}{1}Changed", MembersListSignal, member.ListId) });
         }
 
+        public async Task<bool> DeleteMember(string idList, string emailAddress) {
+            var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, idList, CreateMD5(emailAddress));
+            using (MailChimpHttpClient)
+            {
+                var response = await MailChimpHttpClient.DeleteAsync(endpoint);
+                if (response.IsSuccessStatusCode) {
+                    _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
+                    return true;
+                }
+                throw new MailChimpException(string.Format("Failed to delete member {0} from list {1}", emailAddress, idList));
+            }
+        }
+
         public void RefreshCache(string idList) {
             _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
         }
