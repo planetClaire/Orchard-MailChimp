@@ -121,6 +121,22 @@ namespace MailChimp.Services
             }
         }
 
+        public async Task<Batch> CreateBatch(List<Member> membersToPut) {
+            var operations = membersToPut.Select(member => new Operation {
+                OperationId = member.EmailAddress,
+                Method = Method.PUT.ToString(), 
+                Path = string.Format("/lists/{0}/members/{1}", 
+                member.ListId, CreateMD5(member.EmailAddress)), 
+                Body = JsonConvert.SerializeObject(member, JsonSerializerSettings)
+            }).ToList();
+            var batch = new Batch {Operations = operations};
+            return await PostAsync(string.Format("{0}/batches", ApiVersion), "Failed to create batch", batch);
+        }
+
+        public async Task<BatchCollection> GetBatches() {
+            return await GetAsync<BatchCollection>(string.Format("{0}/batches", ApiVersion), "Failed to get batches");
+        }
+
         public void RefreshCache(string idList) {
             _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
         }

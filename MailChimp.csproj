@@ -92,6 +92,7 @@
     <Compile Include="Exceptions\MailChimpProblem.cs" />
     <Compile Include="Handlers\MailChimpSettingsPartHandler.cs" />
     <Compile Include="Models\MailChimpSettingsPart.cs" />
+    <Compile Include="Resources\Batch.cs" />
     <Compile Include="Resources\Link.cs" />
     <Compile Include="Resources\List.cs" />
     <Compile Include="Resources\ListMembers.cs" />

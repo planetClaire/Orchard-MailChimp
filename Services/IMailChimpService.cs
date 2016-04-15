@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using MailChimp.Resources;
 using Orchard;
 
@@ -12,6 +13,8 @@ namespace MailChimp.Services
         Task<Member> AddMember(Member member);
         Task<Member> AddOrUpdateMember(Member member);
         Task<bool> DeleteMember(string idList, string emailAddress);
+        Task<Batch> CreateBatch(List<Member> batch);
+        Task<BatchCollection> GetBatches();
         void RefreshCache(string idList);
     }
 }
