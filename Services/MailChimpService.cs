@@ -135,11 +135,11 @@ namespace MailChimp.Services
             return result;
         }
 
-        private async Task<T> GetAsync<T>(string endpoint, string message)
+        private async Task<T> GetAsync<T>(string endpoint, string failureMessage)
         {
             using (MailChimpHttpClient) {
                 var response = await MailChimpHttpClient.GetAsync(endpoint);
-                return await ProcessResponse<T>(message, response);
+                return await ProcessResponse<T>(failureMessage, response);
             }
         }
 
@@ -171,7 +171,7 @@ namespace MailChimp.Services
             }
         }
 
-        private static async Task<T> ProcessResponse<T>(string message, HttpResponseMessage response)
+        private static async Task<T> ProcessResponse<T>(string failureMessage, HttpResponseMessage response)
         {
             if (response.IsSuccessStatusCode)
             {
@@ -180,9 +180,9 @@ namespace MailChimp.Services
             if (response.Content != null)
             {
                 var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync(), JsonSerializerSettings);
-                throw new MailChimpException(string.Format("{0}: {1}", message, problem));
+                throw new MailChimpException(string.Format("{0}: {1}", failureMessage, problem));
             }
-            throw new MailChimpException(message);
+            throw new MailChimpException(failureMessage);
         }
 
         private static string CreateMD5(string input)
