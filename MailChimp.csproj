@@ -92,14 +92,10 @@
     <Compile Include="Exceptions\MailChimpProblem.cs" />
     <Compile Include="Handlers\MailChimpSettingsPartHandler.cs" />
     <Compile Include="Models\MailChimpSettingsPart.cs" />
-    <Compile Include="Resources\CampaignDefaults.cs" />
-    <Compile Include="Resources\Contact.cs" />
     <Compile Include="Resources\Link.cs" />
     <Compile Include="Resources\List.cs" />
-    <Compile Include="Resources\Location.cs" />
     <Compile Include="Resources\ListMembers.cs" />
     <Compile Include="Resources\MergeField.cs" />
-    <Compile Include="Resources\Stats.cs" />
     <Compile Include="Resources\Member.cs" />
     <Compile Include="Services\IMailChimpService.cs" />
     <Compile Include="Services\MailChimpService.cs" />
