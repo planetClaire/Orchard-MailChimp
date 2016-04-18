@@ -122,14 +122,21 @@ namespace MailChimp.Services
         }
 
         public async Task<Batch> CreateBatch(List<Member> membersToPut) {
-            var operations = membersToPut.Select(member => new Operation {
-                OperationId = member.EmailAddress,
-                Method = Method.PUT.ToString(), 
-                Path = string.Format("/lists/{0}/members/{1}", 
-                member.ListId, CreateMD5(member.EmailAddress)), 
-                Body = JsonConvert.SerializeObject(member, JsonSerializerSettings)
-            }).ToList();
+            var operations = ConstructOperations(membersToPut);
             var batch = new Batch {Operations = operations};
+            return await PostAsync(string.Format("{0}/batches", ApiVersion), "Failed to create batch", batch);
+        }
+
+        public async Task<Batch> CreateBatch(List<Member> listMembersToPut, List<Member> listMembersToDelete) {
+            var operations = ConstructOperations(listMembersToPut);
+            foreach (var member in listMembersToDelete) {
+                operations.Add(new Operation {
+                    Method = Method.DELETE.ToString(),
+                    OperationId = member.EmailAddress,
+                    Path = string.Format("/lists/{0}/members/{1}", member.ListId, CreateMD5(member.EmailAddress))
+                });
+            }
+            var batch = new Batch { Operations = operations };
             return await PostAsync(string.Format("{0}/batches", ApiVersion), "Failed to create batch", batch);
         }
 
@@ -139,6 +146,19 @@ namespace MailChimp.Services
 
         public void RefreshCache(string idList) {
             _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
+        }
+
+        private static List<Operation> ConstructOperations(List<Member> membersToPut)
+        {
+            var operations = membersToPut.Select(member => new Operation
+            {
+                OperationId = member.EmailAddress,
+                Method = Method.PUT.ToString(),
+                Path = string.Format("/lists/{0}/members/{1}",
+                    member.ListId, CreateMD5(member.EmailAddress)),
+                Body = JsonConvert.SerializeObject(member, JsonSerializerSettings)
+            }).ToList();
+            return operations;
         }
 
         private static string FieldsString(string[] fields)
