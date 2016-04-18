@@ -144,6 +144,12 @@ namespace MailChimp.Services
             return await GetAsync<BatchCollection>(string.Format("{0}/batches", ApiVersion), "Failed to get batches");
         }
 
+        public async Task<BatchCollection> GetAllBatches() {
+            var batches = await GetBatches();
+            var totalCount = batches.TotalItems;
+            return await GetAsync<BatchCollection>(string.Format("{0}/batches?count={1}", ApiVersion, totalCount), "Failed to get batches");
+        }
+
         public void RefreshCache(string idList) {
             _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
         }
