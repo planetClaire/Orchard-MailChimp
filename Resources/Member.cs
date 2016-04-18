@@ -9,6 +9,7 @@ namespace MailChimp.Resources
         public string UniqueEmailId { get; set; }
         public EmailType EmailType { get; set; }
         public Status? Status { get; set; }
+        public Status StatusIfNew { get; set; }
         public Dictionary<string, string> MergeFields { get; set; }
         public MemberStats Stats { get; set; }
         public string IpSignup { get; set; }
