@@ -99,6 +99,7 @@
     <Compile Include="Resources\MergeField.cs" />
     <Compile Include="Resources\Member.cs" />
     <Compile Include="Services\IMailChimpService.cs" />
+    <Compile Include="Serialization\MailChimpSerializerSettings.cs" />
     <Compile Include="Services\MailChimpService.cs" />
     <Compile Include="Serialization\SnakeCaseContractResolver.cs" />
   </ItemGroup>

@@ -11,7 +11,6 @@ using MailChimp.Models;
 using MailChimp.Resources;
 using MailChimp.Serialization;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using Orchard;
 using Orchard.Caching;
 using Orchard.ContentManagement;
@@ -42,20 +41,6 @@ namespace MailChimp.Services
             _apiKey = workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
             _dataCenter = _apiKey.Substring(_apiKey.IndexOf('-') + 1);
             _mailChimpHttpClient = httpClient;
-        }
-
-        private static JsonSerializerSettings JsonSerializerSettings
-        {
-            get
-            {
-                var serializerSettings = new JsonSerializerSettings
-                {
-                    NullValueHandling = NullValueHandling.Ignore,
-                    ContractResolver = new SnakeCaseContractResolver()
-                };
-                serializerSettings.Converters.Add(new StringEnumConverter { CamelCaseText = true });
-                return serializerSettings;
-            }
         }
 
         public async Task<Member> GetMember(string listId, string emailAddress)
@@ -153,7 +138,7 @@ namespace MailChimp.Services
                 Method = Method.PUT.ToString(),
                 Path = string.Format("/lists/{0}/members/{1}",
                     member.ListId, CreateMD5(member.EmailAddress)),
-                Body = JsonConvert.SerializeObject(member, JsonSerializerSettings)
+                Body = JsonConvert.SerializeObject(member, new MailChimpSerializerSettings())
             }).ToList();
             return operations;
         }
@@ -172,14 +157,14 @@ namespace MailChimp.Services
         {
             if (response.IsSuccessStatusCode)
             {
-                return JsonConvert.DeserializeObject<T>(await response.Content.ReadAsStringAsync(), JsonSerializerSettings);
+                return JsonConvert.DeserializeObject<T>(await response.Content.ReadAsStringAsync(), new MailChimpSerializerSettings());
             }
             if (response.Content != null)
             {
-                var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync(), JsonSerializerSettings);
+                var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync(), new MailChimpSerializerSettings());
                 throw new MailChimpException(string.Format("{0}: {1}", failureMessage, problem));
             }
-            throw new MailChimpException(failureMessage);
+            throw new MailChimpException(string.Format("{0} {1}, {2} - {3}", (int)response.StatusCode, response.StatusCode, failureMessage, response.ReasonPhrase));
         }
 
         private static string CreateMD5(string input)
@@ -205,7 +190,7 @@ namespace MailChimp.Services
         }
 
         private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null) {
-            var response = await _mailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+            var response = await _mailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, new MailChimpSerializerSettings())));
             if (triggerSignals != null && triggerSignals.Any()) {
                 foreach (var signal in triggerSignals) {
                     _signals.Trigger(signal);
@@ -216,7 +201,7 @@ namespace MailChimp.Services
 
         private async Task<T> PutAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null)
         {
-            var response = await _mailChimpHttpClient.PutAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+            var response = await _mailChimpHttpClient.PutAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, new MailChimpSerializerSettings())));
             if (triggerSignals != null && triggerSignals.Any())
             {
                 foreach (var signal in triggerSignals)
