@@ -20,26 +20,22 @@ namespace MailChimp.Services
 {
     public class MailChimpService : IMailChimpService
     {
-        private readonly string _apiKey;
-        private readonly string _dataCenter;
-        private readonly ICacheManager _cacheManager;
-        private readonly ISignals _signals;
-
         private const string BaseUrl = "https://{0}.api.mailchimp.com";
         private const string ApiVersion = "3.0";
         private const string MembersListSignal = "MailChimpMembersList";
 
-        private HttpClient MailChimpHttpClient
+        private readonly string _apiKey;
+        private readonly string _dataCenter;
+        private readonly ICacheManager _cacheManager;
+        private readonly ISignals _signals;
+        private HttpClient _mailChimpHttpClient;
+
+        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals)
         {
-            get
-            {
-                var client = new HttpClient
-                {
-                    BaseAddress = new Uri(string.Format(BaseUrl, _dataCenter))
-                };
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format("apikey:{0}", _apiKey))));
-                return client;
-            }
+            _cacheManager = cacheManager;
+            _signals = signals;
+            _apiKey = workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
+            _dataCenter = _apiKey.Substring(_apiKey.IndexOf('-') + 1);
         }
 
         private static JsonSerializerSettings JsonSerializerSettings
@@ -51,17 +47,16 @@ namespace MailChimp.Services
                     NullValueHandling = NullValueHandling.Ignore,
                     ContractResolver = new SnakeCaseContractResolver()
                 };
-                serializerSettings.Converters.Add(new StringEnumConverter{ CamelCaseText = true });
+                serializerSettings.Converters.Add(new StringEnumConverter { CamelCaseText = true });
                 return serializerSettings;
             }
         }
 
-        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals)
+        private HttpClient MailChimpHttpClient
         {
-            _cacheManager = cacheManager;
-            _signals = signals;
-            _apiKey = workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
-            _dataCenter = _apiKey.Substring(_apiKey.IndexOf('-') + 1);
+            get {
+                return _mailChimpHttpClient ?? CreateHttpClient();
+            }
         }
 
         public async Task<Member> GetMember(string listId, string emailAddress)
@@ -110,15 +105,12 @@ namespace MailChimp.Services
 
         public async Task<bool> DeleteMember(string idList, string emailAddress) {
             var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, idList, CreateMD5(emailAddress));
-            using (MailChimpHttpClient)
-            {
-                var response = await MailChimpHttpClient.DeleteAsync(endpoint);
-                if (response.IsSuccessStatusCode) {
-                    _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
-                    return true;
-                }
-                throw new MailChimpException(string.Format("Failed to delete member {0} from list {1}", emailAddress, idList));
+            var response = await MailChimpHttpClient.DeleteAsync(endpoint);
+            if (response.IsSuccessStatusCode) {
+                _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
+                return true;
             }
+            throw new MailChimpException(string.Format("Failed to delete member {0} from list {1}", emailAddress, idList));
         }
 
         public async Task<Batch> CreateBatch(List<Member> membersToPut) {
@@ -177,42 +169,6 @@ namespace MailChimp.Services
             return result;
         }
 
-        private async Task<T> GetAsync<T>(string endpoint, string failureMessage)
-        {
-            using (MailChimpHttpClient) {
-                var response = await MailChimpHttpClient.GetAsync(endpoint);
-                return await ProcessResponse<T>(failureMessage, response);
-            }
-        }
-
-        private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null) {
-            using (MailChimpHttpClient) {
-                var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
-                if (triggerSignals != null && triggerSignals.Any()) {
-                    foreach (var signal in triggerSignals) {
-                        _signals.Trigger(signal);
-                    }
-                }
-                return await ProcessResponse<T>(failureMessage, response);
-            }
-        }
-
-        private async Task<T> PutAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null)
-        {
-            using (MailChimpHttpClient)
-            {
-                var response = await MailChimpHttpClient.PutAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
-                if (triggerSignals != null && triggerSignals.Any())
-                {
-                    foreach (var signal in triggerSignals)
-                    {
-                        _signals.Trigger(signal);
-                    }
-                }
-                return await ProcessResponse<T>(failureMessage, response);
-            }
-        }
-
         private static async Task<T> ProcessResponse<T>(string failureMessage, HttpResponseMessage response)
         {
             if (response.IsSuccessStatusCode)
@@ -235,12 +191,52 @@ namespace MailChimp.Services
                 var hashBytes = md5.ComputeHash(inputBytes);
 
                 var sb = new StringBuilder();
-                foreach (var t in hashBytes) {
+                foreach (var t in hashBytes)
+                {
                     sb.Append(t.ToString("x2"));
                 }
                 return sb.ToString();
             }
         }
-        
+
+        private HttpClient CreateHttpClient()
+        {
+            _mailChimpHttpClient = new HttpClient
+            {
+                BaseAddress = new Uri(string.Format(BaseUrl, _dataCenter))
+            };
+            _mailChimpHttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format("apikey:{0}", _apiKey))));
+            return _mailChimpHttpClient;
+        }
+
+        private async Task<T> GetAsync<T>(string endpoint, string failureMessage)
+        {
+            var response = await MailChimpHttpClient.GetAsync(endpoint);
+            return await ProcessResponse<T>(failureMessage, response);
+        }
+
+        private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null) {
+            var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+            if (triggerSignals != null && triggerSignals.Any()) {
+                foreach (var signal in triggerSignals) {
+                    _signals.Trigger(signal);
+                }
+            }
+            return await ProcessResponse<T>(failureMessage, response);
+        }
+
+        private async Task<T> PutAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null)
+        {
+            var response = await MailChimpHttpClient.PutAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+            if (triggerSignals != null && triggerSignals.Any())
+            {
+                foreach (var signal in triggerSignals)
+                {
+                    _signals.Trigger(signal);
+                }
+            }
+            return await ProcessResponse<T>(failureMessage, response);
+        }
+
     }
 }
