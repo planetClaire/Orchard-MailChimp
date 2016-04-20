@@ -28,14 +28,20 @@ namespace MailChimp.Services
         private readonly string _dataCenter;
         private readonly ICacheManager _cacheManager;
         private readonly ISignals _signals;
-        private HttpClient _mailChimpHttpClient;
+        private readonly HttpClient _mailChimpHttpClient;
 
-        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals)
+        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals) : this(workContext, cacheManager, signals, new HttpClient()) {
+            _mailChimpHttpClient.BaseAddress = new Uri(string.Format(BaseUrl, _dataCenter));
+            _mailChimpHttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format("apikey:{0}", _apiKey))));
+        }
+
+        public MailChimpService(IWorkContextAccessor workContext, ICacheManager cacheManager, ISignals signals, HttpClient httpClient)
         {
             _cacheManager = cacheManager;
             _signals = signals;
             _apiKey = workContext.GetContext().CurrentSite.As<MailChimpSettingsPart>().MailChimpApiKey;
             _dataCenter = _apiKey.Substring(_apiKey.IndexOf('-') + 1);
+            _mailChimpHttpClient = httpClient;
         }
 
         private static JsonSerializerSettings JsonSerializerSettings
@@ -49,13 +55,6 @@ namespace MailChimp.Services
                 };
                 serializerSettings.Converters.Add(new StringEnumConverter { CamelCaseText = true });
                 return serializerSettings;
-            }
-        }
-
-        private HttpClient MailChimpHttpClient
-        {
-            get {
-                return _mailChimpHttpClient ?? CreateHttpClient();
             }
         }
 
@@ -105,7 +104,7 @@ namespace MailChimp.Services
 
         public async Task<bool> DeleteMember(string idList, string emailAddress) {
             var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, idList, CreateMD5(emailAddress));
-            var response = await MailChimpHttpClient.DeleteAsync(endpoint);
+            var response = await _mailChimpHttpClient.DeleteAsync(endpoint);
             if (response.IsSuccessStatusCode) {
                 _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
                 return true;
@@ -199,24 +198,14 @@ namespace MailChimp.Services
             }
         }
 
-        private HttpClient CreateHttpClient()
-        {
-            _mailChimpHttpClient = new HttpClient
-            {
-                BaseAddress = new Uri(string.Format(BaseUrl, _dataCenter))
-            };
-            _mailChimpHttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.ASCII.GetBytes(string.Format("apikey:{0}", _apiKey))));
-            return _mailChimpHttpClient;
-        }
-
         private async Task<T> GetAsync<T>(string endpoint, string failureMessage)
         {
-            var response = await MailChimpHttpClient.GetAsync(endpoint);
+            var response = await _mailChimpHttpClient.GetAsync(endpoint);
             return await ProcessResponse<T>(failureMessage, response);
         }
 
         private async Task<T> PostAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null) {
-            var response = await MailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+            var response = await _mailChimpHttpClient.PostAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
             if (triggerSignals != null && triggerSignals.Any()) {
                 foreach (var signal in triggerSignals) {
                     _signals.Trigger(signal);
@@ -227,7 +216,7 @@ namespace MailChimp.Services
 
         private async Task<T> PutAsync<T>(string endpoint, string failureMessage, T content, List<string> triggerSignals = null)
         {
-            var response = await MailChimpHttpClient.PutAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
+            var response = await _mailChimpHttpClient.PutAsync(endpoint, new StringContent(JsonConvert.SerializeObject(content, JsonSerializerSettings)));
             if (triggerSignals != null && triggerSignals.Any())
             {
                 foreach (var signal in triggerSignals)
