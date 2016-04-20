@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace MailChimp.Resources
 {
@@ -28,7 +29,10 @@ namespace MailChimp.Resources
         public bool HasChangedSinceOptin() {
             // dirty way to tell if a member is new or not, compare timestamps to within 1 second
             // since MC API doesn't distinguish between New and Edit when PUTing. Returns 200 for both rather than 201 for new resource
-            return TimestampOpt != null && (LastChanged != null && !LastChanged.Substring(0, 18).Equals(TimestampOpt.Substring(0, 18)));
+            DateTime dateTimeLastChanged;
+            DateTime dateTimeOpt;
+            return DateTime.TryParse(LastChanged, out dateTimeLastChanged) && DateTime.TryParse(TimestampOpt, out dateTimeOpt)
+                   && (dateTimeLastChanged - dateTimeOpt).Seconds > 1;
         }
     }
 
