@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MailChimp.Resources
 {
-    public class Member
+    public class Member : MailChimpResource
     {
         public string Id { get; set; }
         public string EmailAddress { get; set; }
@@ -37,21 +38,20 @@ namespace MailChimp.Resources
             return DateTime.TryParse(LastChanged, out dateTimeLastChanged) && DateTime.TryParse(TimestampOpt, out dateTimeOpt)
                    && (dateTimeLastChanged - dateTimeOpt).Seconds > 1;
         }
-    }
 
-    public class MemberStats {
-        public int AvgOpenRate { get; set; }
-        public int AvgClickRate { get; set; }
-    }
-
-    public class Location
-    {
-        public int Latitude { get; set; }
-        public int Longitude { get; set; }
-        public int Gmtoff { get; set; }
-        public int Dstoff { get; set; }
-        public string CountryCode { get; set; }
-        public string Timezone { get; set; }
+        public override bool Equals(MailChimpResource other)
+        {
+            var member = other as Member;
+            if (member == null) {
+                return false;
+            }
+            var mergeFieldsEqual = MergeFields != null && member.MergeFields != null 
+                && (MergeFields.Count == member.MergeFields.Count && !MergeFields.Except(member.MergeFields).Any());
+            if (!mergeFieldsEqual) {
+                return false;
+            }
+            return base.Equals(other);
+        }
     }
 
     public enum EmailType

@@ -2,13 +2,7 @@
 
 namespace MailChimp.Resources
 {
-    public class BatchCollection {
-        public List<Batch> Batches { get; set; }
-        public int TotalItems { get; set; }
-        public List<Link> Links { get; set; }
-    }
-
-    public class Batch
+    public class Batch : MailChimpResource
     {
         public List<Operation> Operations { get; set; }
 
@@ -27,13 +21,5 @@ namespace MailChimp.Resources
         Pending,
         Started,
         Finished
-    }
-
-    public class Operation {
-        public string Method { get; set; }
-        public string Path { get; set; }
-        public Dictionary<string, string> Params { get; set; }
-        public string Body { get; set; }
-        public string OperationId { get; set; }
     }
 }

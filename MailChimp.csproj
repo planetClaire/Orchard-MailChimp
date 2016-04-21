@@ -47,6 +47,10 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MemberwiseEqualityComparer, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>bin\MemberwiseEqualityComparer.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="Newtonsoft.Json, Version=7.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -93,11 +97,20 @@
     <Compile Include="Handlers\MailChimpSettingsPartHandler.cs" />
     <Compile Include="Models\MailChimpSettingsPart.cs" />
     <Compile Include="Resources\Batch.cs" />
+    <Compile Include="Resources\BatchCollection.cs" />
+    <Compile Include="Resources\CampaignDefaults.cs" />
+    <Compile Include="Resources\Contact.cs" />
     <Compile Include="Resources\Link.cs" />
     <Compile Include="Resources\List.cs" />
     <Compile Include="Resources\ListMembers.cs" />
+    <Compile Include="Resources\ListStats.cs" />
+    <Compile Include="Resources\Location.cs" />
+    <Compile Include="Resources\MailChimpResource.cs" />
+    <Compile Include="Resources\MemberStats.cs" />
     <Compile Include="Resources\MergeField.cs" />
     <Compile Include="Resources\Member.cs" />
+    <Compile Include="Resources\Operation.cs" />
+    <Compile Include="Resources\Options.cs" />
     <Compile Include="Services\IMailChimpService.cs" />
     <Compile Include="Serialization\MailChimpSerializerSettings.cs" />
     <Compile Include="Services\MailChimpService.cs" />

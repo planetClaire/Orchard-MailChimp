@@ -1,5 +1,5 @@
 ﻿namespace MailChimp.Resources {
-    public class Link {
+    public class Link : MailChimpResource {
         public string Rel { get; set; }
         public string Href { get; set; }
         public Method Method { get; set; }

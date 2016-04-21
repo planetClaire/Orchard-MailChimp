@@ -2,7 +2,7 @@
 
 namespace MailChimp.Resources
 {
-    public class ListMembers
+    public class ListMembers : MailChimpResource
     {
         public List<Member> Members { get; set; }
         public string ListId { get; set; }

@@ -2,7 +2,8 @@
 
 namespace MailChimp.Resources {
 
-    public class MergeField {
+    public class MergeField : MailChimpResource
+    {
         public int MergeId { get; set; }
         public string Tag { get; set; }
         public string Name { get; set; }
@@ -17,16 +18,4 @@ namespace MailChimp.Resources {
         public List<Link> Links { get; set; }
     }
 
-    public class Options {
-        public int DefaultCountry { get; set; }
-        public PhoneFormat PhoneFormat { get; set; }
-        public string DateFormat { get; set; }
-        public string[] Choices { get; set; }
-        public int Size { get; set; }
-    }
-
-    public enum PhoneFormat {
-        US,
-        International
-    }
 }

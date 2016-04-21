@@ -121,5 +121,58 @@ namespace MailChimpTests.Services
             ClearSession();
         }
 
+        [Test]
+        public async void GetMember_ReturnsPopulatedMember() {
+            const string listId = "123";
+            const string email = "me@email.com";
+            const string emailMD5 = "8f9dc04e6abdcc9fea53e81945c7294b";
+            var location = new Location {
+                CountryCode = "AU",
+                Dstoff = 1,
+                Gmtoff = 2,
+                Latitude = 123,
+                Longitude = 456,
+                Timezone = "8"
+            };
+            var member = new Member {
+                EmailAddress = email,
+                EmailClient = "client",
+                EmailType = EmailType.Html,
+                Id = "1",
+                IpOpt = "192.168.100.101",
+                IpSignup = "192.168.100.102",
+                Status = Status.Subscribed,
+                Stats = new MemberStats {
+                    AvgClickRate = 10,
+                    AvgOpenRate = 11
+                },
+                LastChanged = "2016-08-15",
+                MergeFields = new Dictionary<string, string> {
+                    {"FNAME", "first"},
+                    {"LNAME", "last"}
+                },
+                Vip = true,
+                ListId = listId,
+                MemberRating = 2,
+                Language = "en",
+                Location = location,
+                TimestampOpt = "2016-08-02",
+                TimestampSignup = "2016-08-01",
+                UniqueEmailId = "4"
+            };
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}/members/{3}", BaseUrl, ApiVersion, listId, emailMD5))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(member, 
+                    new MailChimpSerializerSettings()))
+                });
+
+            var returnedMember = await _mailChimpService.GetMember(listId, email);
+
+            Assert.AreEqual(member, returnedMember, "Expected member object not returned");
+            ClearSession();
+        }
+
     }
 }
