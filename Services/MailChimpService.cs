@@ -87,6 +87,17 @@ namespace MailChimp.Services
             return await PutAsync(endpoint, failureMessage, member, new List<string> { string.Format("{0}{1}Changed", MembersListSignal, member.ListId) });
         }
 
+        public async Task<Member> UnsubscribeMember(string email, string listId) {
+            var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, listId, CreateMD5(email));
+            var failureMessage = string.Format("Failed to unsubscribe member {0} from list {1}", email, listId);
+            var member = new Member {
+                EmailAddress = email,
+                Status = Status.Unsubscribed,
+                ListId = listId
+            };
+            return await PutAsync(endpoint, failureMessage, member, new List<string> { string.Format("{0}{1}Changed", MembersListSignal, member.ListId) });
+        }
+
         public async Task<bool> DeleteMember(string idList, string emailAddress) {
             var endpoint = string.Format("{0}/lists/{1}/members/{2}", ApiVersion, idList, CreateMD5(emailAddress));
             var response = await _mailChimpHttpClient.DeleteAsync(endpoint);

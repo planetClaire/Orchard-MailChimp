@@ -434,5 +434,21 @@ namespace MailChimpTests.Services
             ClearSession();
         }
 
+        [Test]
+        public async void UnsubscribeMember_SetsStatusToUnsubscribe() {
+            _mockHttpMessageHandler.Expect(HttpMethod.Put, "*").WithPartialContent(Status.Unsubscribed.ToString().ToLowerInvariant())
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.UnsubscribeMember("me@email.com", "123");
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
     }
 }
