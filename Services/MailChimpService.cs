@@ -94,7 +94,8 @@ namespace MailChimp.Services
                 _signals.Trigger(string.Format("{0}{1}Changed", MembersListSignal, idList));
                 return true;
             }
-            throw new MailChimpException(string.Format("Failed to delete member {0} from list {1}", emailAddress, idList));
+            var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync(), new MailChimpSerializerSettings());
+            throw new MailChimpException(string.Format("Failed to delete member {0} from list {1}", emailAddress, idList), problem);
         }
 
         public async Task<Batch> CreateBatch(List<Member> membersToPut) {
@@ -162,7 +163,7 @@ namespace MailChimp.Services
             if (response.Content != null)
             {
                 var problem = JsonConvert.DeserializeObject<MailChimpProblem>(await response.Content.ReadAsStringAsync(), new MailChimpSerializerSettings());
-                throw new MailChimpException(string.Format("{0}: {1}", failureMessage, problem));
+                throw new MailChimpException(string.Format("{0}: {1}", failureMessage, problem), problem);
             }
             throw new MailChimpException(string.Format("{0} {1}, {2} - {3}", (int)response.StatusCode, response.StatusCode, failureMessage, response.ReasonPhrase));
         }

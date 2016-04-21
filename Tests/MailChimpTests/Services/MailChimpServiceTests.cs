@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using MailChimp.Services;
 using NUnit.Framework;
 using Orchard.Tests.Modules;
 using Autofac;
+using MailChimp.Exceptions;
 using MailChimp.Handlers;
 using MailChimp.Models;
 using MailChimp.Resources;
@@ -171,6 +173,264 @@ namespace MailChimpTests.Services
             var returnedMember = await _mailChimpService.GetMember(listId, email);
 
             Assert.AreEqual(member, returnedMember, "Expected member object not returned");
+            ClearSession();
+        }
+
+        [Test]
+        [ExpectedException(typeof(MailChimpException))]
+        public async void GetMember_NotSuccessful_ThrowsMailChimpException()
+        {
+            const string listId = "123";
+            const string email = "me@email.com";
+            const string emailMD5 = "8f9dc04e6abdcc9fea53e81945c7294b";
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}/members/{3}", BaseUrl, ApiVersion, listId, emailMD5))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.NotFound,
+                    Content = new StringContent(JsonConvert.SerializeObject(new MailChimpProblem(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.GetMember(listId, email);
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void GetMember_NotSuccessful_AttachesProblemDetailToException() {
+            const string listId = "123";
+            const string email = "me@email.com";
+            const string emailMD5 = "8f9dc04e6abdcc9fea53e81945c7294b";
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}/members/{3}", BaseUrl, ApiVersion, listId, emailMD5))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.NotFound,
+                    Content = new StringContent(JsonConvert.SerializeObject(new MailChimpProblem{ Detail = "WAT" }, new MailChimpSerializerSettings()))
+                });
+
+            try {
+                await _mailChimpService.GetMember(listId, email);
+            }
+            catch (MailChimpException ex) {
+                Assert.NotNull(ex.Problem);
+                Assert.AreEqual("WAT", ex.Problem.Detail);
+            }
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void GetList_ConstructsCorrectEndpoint()
+        {
+            const string listId = "123";
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}", BaseUrl, ApiVersion, listId))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new MailChimp.Resources.List(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.GetList(listId);
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void GetList_ConstructsEndpointFieldQueryCorrectly()
+        {
+            const string listId = "123";
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}", BaseUrl, ApiVersion, listId)).WithQueryString("fields", "TotalCount")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new MailChimp.Resources.List(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.GetList(listId, new[] { "TotalCount" });
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void GetList_ConstructsEndpointFieldsQueryCorrectly()
+        {
+            const string listId = "123";
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}", BaseUrl, ApiVersion, listId)).WithQueryString("fields", "TotalCount,Size")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new MailChimp.Resources.List(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.GetList(listId, new[] { "TotalCount", "Size" });
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void GetMembersInfo_ConstructsCorrectEndpoint() {
+            const string listId = "123";
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}/members", BaseUrl, ApiVersion, listId))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new MailChimp.Resources.List(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.GetMembersInfo(listId);
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();            
+        }
+
+        [Test]
+        public async void GetAllMembers_ConstructsCorrectEndpoint()
+        {
+            const string listId = "123";
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}/members", BaseUrl, ApiVersion, listId)).WithQueryString("fields", "total_items")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new ListMembers{ TotalItems = 3 }, new MailChimpSerializerSettings()))
+                });
+
+            _mockHttpMessageHandler.Expect(string.Format("{0}/{1}/lists/{2}/members", BaseUrl, ApiVersion, listId)).WithQueryString("count", "3")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new MailChimp.Resources.List(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.GetAllMembers(listId);
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void AddMember_POSTsRequest() {
+            _mockHttpMessageHandler.Expect(HttpMethod.Post, "*")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.AddMember(new Member {ListId = "123", EmailAddress = "me@email.com"});
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+            
+            ClearSession();
+        }
+
+        [Test]
+        public async void AddMember_ConstructsCorrectEndpoint() {
+            _mockHttpMessageHandler.Expect(HttpMethod.Post, string.Format("{0}/{1}/lists/{2}/members", BaseUrl, ApiVersion, "123"))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.AddMember(new Member { ListId = "123", EmailAddress = "me@email.com" });
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void AddMember_PostsMemberContent() {
+            _mockHttpMessageHandler.Expect(HttpMethod.Post, string.Format("{0}/{1}/lists/{2}/members", BaseUrl, ApiVersion, "123")).WithPartialContent("me@email.com").WithPartialContent("123")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.AddMember(new Member { ListId = "123", EmailAddress = "me@email.com" });
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void AddOrUpdateMember_PUTsRequest()
+        {
+            _mockHttpMessageHandler.Expect(HttpMethod.Put, "*")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.AddOrUpdateMember(new Member { ListId = "123", EmailAddress = "me@email.com" });
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void AddOrUpdateMember_ConstructsCorrectEndpoint()
+        {
+            const string listId = "123";
+            _mockHttpMessageHandler.Expect(HttpMethod.Put, string.Format("{0}/{1}/lists/{2}/members/*", BaseUrl, ApiVersion, listId))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.AddOrUpdateMember(new Member {ListId = listId, EmailAddress = "me@email.com"});
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void AddOrUpdateMember_HashesEmailCorrectly()
+        {
+            const string listId = "123";
+            const string email = "me@email.com";
+            const string emailMD5 = "8f9dc04e6abdcc9fea53e81945c7294b";
+            _mockHttpMessageHandler.Expect(HttpMethod.Put, string.Format("{0}/{1}/lists/{2}/members/{3}", BaseUrl, ApiVersion, listId, emailMD5))
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.AddOrUpdateMember(new Member { ListId = listId, EmailAddress = "me@email.com" });
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
+            ClearSession();
+        }
+
+        [Test]
+        public async void AddOrUpdateMember_DELETEsRequest()
+        {
+            _mockHttpMessageHandler.Expect(HttpMethod.Delete, "*")
+                .Respond(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = new StringContent(JsonConvert.SerializeObject(new Member(), new MailChimpSerializerSettings()))
+                });
+
+            await _mailChimpService.DeleteMember("123", "me@email.com");
+
+            _mockHttpMessageHandler.VerifyNoOutstandingExpectation();
+
             ClearSession();
         }
 
