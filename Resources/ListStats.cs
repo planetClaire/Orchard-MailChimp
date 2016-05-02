@@ -10,11 +10,11 @@
         public int CampaignCount { get; set; }
         public string CampaignLastSent { get; set; }
         public int MergeFieldCount { get; set; }
-        public int AvgSubRate { get; set; }
-        public int AvgUnsubRate { get; set; }
-        public int TargetSubRate { get; set; }
-        public int OpenRate { get; set; }
-        public int ClickRate { get; set; }
+        public float AvgSubRate { get; set; }
+        public float AvgUnsubRate { get; set; }
+        public float TargetSubRate { get; set; }
+        public float OpenRate { get; set; }
+        public float ClickRate { get; set; }
         public string LastSubDate { get; set; }
         public string LastUnsubDate { get; set; }
     }
